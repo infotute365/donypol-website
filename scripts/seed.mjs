@@ -1,18 +1,29 @@
 import mongoose from 'mongoose';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { hashPassword } from '../src/lib/password.mjs';
 import { PrideAchievement } from '../src/lib/pride-model.mjs';
 import { seedPrideRecords } from '../src/lib/pride-core.mjs';
+import { loadSeedEnvironment, formatSeedError } from './seed-config.mjs';
 
-const uri = process.env.MONGODB_URI;
-const username = (process.env.ADMIN_INITIAL_USERNAME || '').trim().toLowerCase();
-const password = process.env.ADMIN_INITIAL_PASSWORD;
+const root = fileURLToPath(new URL('../', import.meta.url));
+let phase = 'loading environment';
 async function main() {
-  if (!uri || !username || !password) throw new Error('Set MONGODB_URI, ADMIN_INITIAL_USERNAME and ADMIN_INITIAL_PASSWORD in .env.local.');
+  loadSeedEnvironment(root);
+  const uri = process.env.MONGODB_URI?.trim();
+  const username = (process.env.ADMIN_INITIAL_USERNAME || '').trim().toLowerCase();
+  const password = process.env.ADMIN_INITIAL_PASSWORD;
+  phase = 'validating configuration';
+  const missing = ['MONGODB_URI', 'ADMIN_INITIAL_USERNAME', 'ADMIN_INITIAL_PASSWORD'].filter((key) => !process.env[key]?.trim());
+  if (missing.length) throw new Error(`Missing ${missing.join(', ')}. Set these in .env.local, .env or the shell environment used to run this command.`);
   if (!/^[a-z0-9._-]{4,64}$/.test(username)) throw new Error('Username must be 4-64 lowercase letters, digits, dot, dash or underscore');
   if (password.length < 16) throw new Error('Admin password must be at least 16 characters');
+  phase = 'reading data/seed-content.json';
+  const source = JSON.parse(await fs.readFile(new URL('../data/seed-content.json', import.meta.url), 'utf8'));
+  phase = 'connecting to MongoDB';
   await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000 });
+  phase = 'provisioning the administrator';
   const adminSchema = new mongoose.Schema({ username:String,passwordHash:String,role:String,active:Boolean,sessionVersion:Number },{timestamps:true});
   const siteSchema = new mongoose.Schema({key:String,content:mongoose.Schema.Types.Mixed,revision:Number},{timestamps:true,minimize:false});
   const stateSchema = new mongoose.Schema({key:{type:String,unique:true,required:true}},{timestamps:true});
@@ -33,7 +44,7 @@ async function main() {
     await Admin.create({username,passwordHash:hashPassword(password),role:'admin',active:true,sessionVersion:1});
     console.log('Administrator provisioned.');
   } else { console.log('Administrator already exists; password unchanged.'); }
-  const source = JSON.parse(await fs.readFile(path.join(process.cwd(),'data','seed-content.json'),'utf8'));
+  phase = 'seeding website content';
   await Site.updateOne({key:'public'},{$setOnInsert:{key:'public',content:source,revision:1}},{upsert:true});
   const currentSite = await Site.findOne({key:'public'}).lean();
   await seedPrideRecords(PrideAchievement, State, source.achievers, currentSite?.content?.achievers);
@@ -48,4 +59,4 @@ async function main() {
   }
   console.log('Seed completed. No existing website content was overwritten.');
 }
-main().catch(()=>{console.error('Seed failed: verify MongoDB connectivity, environment variables and administrator policy.');process.exitCode=1;}).finally(()=>mongoose.disconnect().catch(()=>{}));
+main().catch((error)=>{console.error(`Seed failed while ${phase}: ${formatSeedError(error)}`);process.exitCode=1;}).finally(()=>mongoose.disconnect().catch(()=>{}));

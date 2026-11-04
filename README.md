@@ -15,7 +15,7 @@ Updated from the uploaded school ZIP. The original school text, school identity,
 
 ## Start on your computer
 
-Requires **Node.js 20+** and a working **MongoDB server**.
+Requires **Node.js 20.19.0 or newer** and a working **MongoDB server**. This minimum comes from [Mongoose 9](https://mongoosejs.com/docs/migrating_to_9.html#nodejs-version-support).
 
 ```bash
 npm install
@@ -33,12 +33,23 @@ To verify a production build while the development server is running, use a sepa
 
 ## Production on Hetzner VPS
 
-1. Install Node.js 20+, MongoDB (or a protected managed MongoDB), and Nginx as a TLS-terminating reverse proxy. Configure Nginx to forward the real `Host` and `X-Real-IP` headers only from its trusted proxy. Do not expose MongoDB port 27017 publicly.
+1. Install Node.js 20.19.0 or newer, MongoDB (or a protected managed MongoDB), and Nginx as a TLS-terminating reverse proxy. Configure Nginx to forward the real `Host` and `X-Real-IP` headers only from its trusted proxy. Do not expose MongoDB port 27017 publicly.
 2. Set **new** production values for `MONGODB_URI`, `JWT_SECRET` (48+ random characters), `APP_ORIGIN=https://your-domain`, and temporary `ADMIN_INITIAL_USERNAME` / `ADMIN_INITIAL_PASSWORD`. Never reuse the local values from this handover.
 3. Run `npm install`, then **seed once**, then `npm run build`, and run `npm start` behind HTTPS. If using env files, provide them securely to the deployment process. Avoid including secrets in client-side `NEXT_PUBLIC_*` variables.
 4. After provisioning, clear the `ADMIN_INITIAL_PASSWORD` value and remove the local credentials handover file. Store the production credentials in a password manager.
 5. Persist and back up **both MongoDB and `public/upload/`** across deployments. The upload directory is a stateful VPS volume; serverless ephemeral storage is unsupported for uploads. Configure file-size limits in Nginx too (e.g. `client_max_body_size 25m;`).
 6. Smoke test login/logout, failed-login throttling, admin authorization, image upload, each gallery operation, circular publishing, CBSE PDF replacement, all original photos, and backup restoration on the actual production domain. Enable HTTPS, monitoring, database backups and security patch updates.
+
+### Troubleshooting `npm run seed` on the VPS
+
+The command reads `.env.local`, then `.env` from the project directory. Variables already exported in the shell take precedence over both files; `.env.local` takes precedence over `.env`. Neither file is required if the shell already supplies the configuration. Variables configured only for a running PM2/systemd service are not automatically available to a separate SSH shell. The seed command requires `MONGODB_URI`, `ADMIN_INITIAL_USERNAME` (4–64 letters, digits, dots, dashes or underscores) and `ADMIN_INITIAL_PASSWORD` (at least 16 characters).
+
+Run `node --version` and `npm run seed` from the deployed project directory. Failures now report the operation and underlying error while redacting MongoDB connection strings and configured secrets:
+
+- `Missing ...`: supply the named variables in the command's environment or one of the files above.
+- `ECONNREFUSED` / server selection timeout: check that MongoDB is running and reachable from the VPS at the configured host and port.
+- `Authentication failed`: check the database user's credentials and `authSource` in `MONGODB_URI`.
+- `Another administrator exists`: automatic creation of a second administrator is disabled. Use the existing administrator's username. Password changes require the explicit `--reset-password` option described above.
 
 ## Verification
 
