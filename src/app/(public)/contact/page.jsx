@@ -1,0 +1,5 @@
+import {MapPin,Phone,Mail} from 'lucide-react';
+import PageHeader from '@/components/public/PageHeader';
+import {readSite} from '@/lib/db';
+export const metadata={title:'Contact'};
+export default async function Contact({ previewContent } = {}){const d=previewContent || await readSite();const p=d.pages.contact;const s=d.school;const rows=[[MapPin,p.addressLabel,s.address,null],[Phone,p.phoneLabel,s.phone,`tel:${s.phone}`],[Mail,p.emailLabel,s.email,`mailto:${s.email}`]];return <><PageHeader title={p.pageTitle}/><div className="inner-content grid gap-8 lg:grid-cols-[340px_1fr]"><ul className="space-y-5">{rows.map(([Icon,label,text,url],i)=><li className="soft-panel flex gap-4" key={i}><span className="clay-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[#842b44]"><Icon size={20}/></span><div><p className="font-semibold text-[#60283a]">{label}</p>{url?<a className="text-sm text-[#685953] hover:underline" href={url}>{text}</a>:<p className="text-sm text-[#685953]">{text}</p>}</div></li>)}</ul><iframe title={p.mapTitle} loading="lazy" className="h-[460px] w-full rounded-[30px] border-0" src={p.map}/></div></>}

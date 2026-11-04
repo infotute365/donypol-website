@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { color-scheme:light; --font-display: Georgia, serif; --font-body: system-ui, -apple-system, Segoe UI, sans-serif; }
+html { scroll-behavior:smooth; }
+body { background:#fffdfa; }
+:focus-visible { outline:3px solid #cf9c5c;outline-offset:3px; }
+.heritage-hero { background-size:cover; background-position:center center; }
+.glass-notices { background:linear-gradient(140deg,rgba(255,254,249,.92),rgba(250,241,234,.84)); }
+.clay-icon { background:linear-gradient(145deg,#fffaf1,#f2dcc7);box-shadow:inset 2px 2px 3px rgba(255,255,255,.85),inset -3px -4px 6px rgba(149,96,59,.12), 3px 7px 14px rgba(90,51,39,.11); }
+.pride-card { transition:transform .2s ease,box-shadow .2s ease; }
+.pride-card:hover { transform:translateY(-3px);box-shadow:0 20px 45px -28px rgba(78,28,47,.45); }
+.pride-page { display:inline-flex;min-width:44px;min-height:44px;align-items:center;justify-content:center;border:1px solid #d9c3a4;border-radius:14px;padding:8px 14px;background:#fff9ef;color:#74233e;font-size:.875rem;font-weight:700; }
+.pride-page-current { background:#74233e;color:white;border-color:#74233e; }
+.eyebrow {font-size:.68rem;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:#a1764d;}
+.section-title {font-family:var(--font-display),Georgia,serif;font-size:clamp(2rem,3.4vw,3rem);line-height:1.15;font-weight:750;letter-spacing:-.03em;color:#502236;}
+.inner-content {max-width:1300px;margin:0 auto;padding:70px 20px 85px;}
+.soft-panel {border:1px solid #e9ded0;border-radius:24px;background:#fffdfa;padding:28px;box-shadow:0 13px 36px -30px rgba(70,34,41,.5);}
+@keyframes fadein { from {opacity:0;transform:translateY(12px)} to {opacity:1;transform:none} }
+.animate-fade-in {animation:fadein .8s ease-out both;}
+@media(min-width:768px){.inner-content{padding-left:40px;padding-right:40px;}}
+@media(max-width:767px){.heritage-hero{background-position:48% center;}.soft-panel{padding:20px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.animate-fade-in{animation:none}*,*:before,*:after{transition-duration:.01ms!important}}

@@ -1,0 +1,27 @@
+{
+  "name": "donyi-polo-vidya-niketan",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "seed": "node --env-file=.env.local scripts/seed.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node scripts/verify.mjs",
+    "test:integration": "node --env-file=.env.local scripts/test-pride-integration.mjs",
+    "test:browser": "node --env-file=.env.local scripts/test-pride-integration.mjs --browser"
+  },
+  "dependencies": {
+    "lucide-react": "^0.469.0",
+    "mongoose": "^9.10.2",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17"
+  }
+}

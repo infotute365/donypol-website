@@ -1,0 +1,11 @@
+node_modules
+.next
+.next-build-check
+.env*
+ADMIN_LOGIN_LOCAL.txt
+artifacts/
+*.log
+.aws/
+.codex/
+/public/upload/*
+!/public/upload/.gitkeep
