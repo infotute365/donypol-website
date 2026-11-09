@@ -9,7 +9,7 @@ Updated from the uploaded school ZIP. The original school text, school identity,
 - Admin login `/admin/login` with scrypt password hashing, signed JWT in HTTP-only same-site cookies, session-version invalidation, login throttling, same-origin checks, audit entries, and protected dashboard.
 - `/admin/dashboard` sections: overview, structured **all-page text and image editor**, dynamic circulars panel, CBSE PDFs, gallery.
 - Public circulars panel on homepage and `/circulars` page. Add, edit, pin, attach PDF, and delete from admin.
-- Permanent CBSE document URLs `/api/media/cbse/<document-id>` that remain the same when the underlying PDF is replaced. Old seeded PDFs redirect to original school-hosted URLs until replaced.
+- Stable CBSE URLs preserve the original `/cbse_information/<filename>.pdf` paths for seeded documents and use `/api/media/cbse/<document-id>` for newly created documents. Missing local PDFs are clearly marked unavailable and are not redirected to the old host.
 - Gallery event CRUD and dedicated image uploads, with image/PDF content-signature validation and size limits.
 - Editing public content does not silently overwrite school source material; every initial edit is explicit and saved in MongoDB.
 
@@ -29,20 +29,34 @@ The development server also supports `http://127.0.0.1:3000/admin/login` on the 
 
 To verify a production build while the development server is running, use a separate output directory in PowerShell: `$env:NEXT_DIST_DIR='.next-build-check'; npm run build`. Set the same variable when running `npm run test:browser` against that build. This avoids overwriting the development server's `.next` output.
 
-`npm run seed` is idempotent. It inserts baseline content once and will **never** overwrite admin-edited content. To intentionally replace a provisioned account password, set `ADMIN_INITIAL_PASSWORD` to a new strong value and run `npm run seed -- --reset-password`. The command invalidates earlier login sessions.
+`npm run seed` is for a new, intentionally provisioned database; do not run it as part of an update to an existing live site. It inserts baseline content once and does not overwrite admin-edited site content. To intentionally replace a provisioned account password, set `ADMIN_INITIAL_PASSWORD` to a new strong value and run `npm run seed -- --reset-password`. The command invalidates earlier login sessions.
 
-## Production on Hetzner VPS
+## Documented deployment target: Hetzner VPS
 
-1. Install Node.js 20.19.0 or newer, MongoDB (or a protected managed MongoDB), and Nginx as a TLS-terminating reverse proxy. Configure Nginx to forward the real `Host` and `X-Real-IP` headers only from its trusted proxy. Do not expose MongoDB port 27017 publicly.
-2. Set **new** production values for `MONGODB_URI`, `JWT_SECRET` (48+ random characters), `APP_ORIGIN=https://your-domain`, and temporary `ADMIN_INITIAL_USERNAME` / `ADMIN_INITIAL_PASSWORD`. Never reuse the local values from this handover.
-3. Run `npm install`, then **seed once**, then `npm run build`, and run `npm start` behind HTTPS. If using env files, provide them securely to the deployment process. Avoid including secrets in client-side `NEXT_PUBLIC_*` variables.
-4. After provisioning, clear the `ADMIN_INITIAL_PASSWORD` value and remove the local credentials handover file. Store the production credentials in a password manager.
-5. Persist and back up **both MongoDB and `public/upload/`** across deployments. The upload directory is a stateful VPS volume; serverless ephemeral storage is unsupported for uploads. Configure file-size limits in Nginx too (e.g. `client_max_body_size 25m;`).
-6. Smoke test login/logout, failed-login throttling, admin authorization, image upload, each gallery operation, circular publishing, CBSE PDF replacement, all original photos, and backup restoration on the actual production domain. Enable HTTPS, monitoring, database backups and security patch updates.
+The repository documents a Hetzner VPS deployment, but does not contain host, process-manager, or reverse-proxy configuration proving that this is the live host. Verify the actual host and service configuration before applying these steps.
 
-### Troubleshooting `npm run seed` on the VPS
+1. Before deployment, take and restore-test backups of MongoDB, `public/upload/`, and `public/cbse-information/`; record the currently deployed application version. Do not proceed if any backup is missing or unrestorable.
+2. Install Node.js 20.19.0 or newer, MongoDB (or a protected managed MongoDB), and Nginx as a TLS-terminating reverse proxy. Configure Nginx to forward the real `Host` and `X-Real-IP` headers only from its trusted proxy. Do not expose MongoDB port 27017 publicly.
+3. Set **new** production values for `MONGODB_URI`, `JWT_SECRET` (48+ random characters), and `APP_ORIGIN=https://your-domain`. Never reuse local values or reset/create administrator accounts during this asset-management deployment.
+4. Deploy the reviewed application version using the existing process manager and `npm ci`, then build and restart the application without removing either upload directory. **Do not run `npm run seed` on the existing live database.** Public reads do not perform data seeding.
+5. If the read-only migration preview shows missing original dynamic records, compare its counts/markers to a verified backup and obtain explicit approval before applying it. The preview command makes no changes:
+   `node scripts/migrate-managed-content.mjs`
+   Apply only to the independently verified target database, after backups, with its exact database name:
+   `node scripts/migrate-managed-content.mjs --apply --confirm-db=<database-name>`
+6. Persist and back up **MongoDB, `public/upload/`, and `public/cbse-information/`** across deployments. These directories require durable writable storage; serverless ephemeral storage is unsupported. Configure Nginx request limits (for example `client_max_body_size 25m;`) and HTTPS.
+7. Smoke test login/logout, admin authorization, logo and image uploads, gallery operations, CBSE PDF upload/replacement, and legacy document URLs on the actual production domain. Verify backups remain intact.
 
-The command reads `.env.local`, then `.env` from the project directory. Variables already exported in the shell take precedence over both files; `.env.local` takes precedence over `.env`. Neither file is required if the shell already supplies the configuration. Variables configured only for a running PM2/systemd service are not automatically available to a separate SSH shell. The seed command requires `MONGODB_URI`, `ADMIN_INITIAL_USERNAME` (4–64 letters, digits, dots, dashes or underscores) and `ADMIN_INITIAL_PASSWORD` (at least 16 characters).
+### Rollback
+
+1. Stop or drain writes while preserving the database and upload directories.
+2. Restore the previously deployed application version; do not restore or reset MongoDB merely to roll back code.
+3. If a reviewed migration was applied, keep the added fields/records: they are backward-compatible and the old app should ignore them. Do not delete migrated rows or files automatically.
+4. Restore MongoDB or upload backups only if a verified data/storage failure requires it, and only through the separately approved, restore-tested procedure.
+5. Restart the old application and smoke-test public pages, admin login, existing records, images, and PDFs.
+
+### Troubleshooting `npm run seed` for a new installation
+
+The command reads `.env.local`, then `.env` from the project directory. Variables already exported in the shell take precedence over both files; `.env.local` takes precedence over `.env`. Neither file is required if the shell already supplies the configuration. Variables configured only for a running PM2/systemd service are not automatically available to a separate SSH shell. The seed command requires `MONGODB_URI`, `ADMIN_INITIAL_USERNAME` (4–64 letters, digits, dots, dashes or underscores) and `ADMIN_INITIAL_PASSWORD` (at least 16 characters). Do not use it as an update/migration command for an existing live database.
 
 Run `node --version` and `npm run seed` from the deployed project directory. Failures now report the operation and underlying error while redacting MongoDB connection strings and configured secrets:
 
@@ -57,9 +71,9 @@ The **Website editor** now includes a separate homepage background replacement c
 
 Our Pride is managed in **Admin dashboard → Our Pride Management**. Add/edit names, achievements, award titles, optional descriptions/classes/years and optional photos. Preview the card, then save hidden or published. Published records appear newest first; the homepage shows three, and `/our-pride?page=1` shows nine per page. Use this dedicated manager instead of the former generic achievers editor.
 
-The original three students are migrated idempotently by `npm run seed` or the first Our Pride read. Existing school data is preserved. Publication timestamps for imported records represent migration time; no historical achievement years are inferred. Completion markers prevent deleted achievements from returning on a later seed.
+Public and admin reads never seed or migrate database collections. For an existing installation that needs original dynamic records provisioned, use the separately reviewable `scripts/migrate-managed-content.mjs`: it defaults to a read-only preview, requires `--apply` plus the exact database name to write, uses per-record idempotent upserts, and does not overwrite or delete existing content. Run it only after backups and manual review. Imported publication timestamps represent migration time; no historical achievement years are inferred.
 
-`npm run test:integration` launches the production build on port 3100 against a unique disposable test database, checks real authenticated CRUD, uploads and public queries, then removes its test database/files. Run `npm run build` first. `npm run test:browser` also uses installed headless Microsoft Edge (override `EDGE_PATH` when necessary), checks six responsive widths and writes screenshots to `artifacts/`.
+`npm run test:integration` launches the production build on port 3100 against a unique disposable test database and isolated temporary file storage, checks real authenticated CRUD, uploads, read-only public requests, and explicit migration behavior, then removes both test resources. Run `npm run build` first. `npm run test:browser` also uses installed headless Microsoft Edge (override `EDGE_PATH` when necessary), checks seven responsive widths including 375px and writes screenshots to `artifacts/`.
 
 Optional footer attribution reads `DEVELOPER_CREDIT_NAME` and `DEVELOPER_CREDIT_URL` from the server environment. Set these to the actual approved developer details; no attribution name is invented. The footer includes an Admin Login link.
 
@@ -70,6 +84,6 @@ Run `npm run verify`, `npm test`, and `npm run build`. Offline tests cover origi
 ## Notes
 
 - Do not change the original school photo URLs without permission. Their current rendering depends on the source domain staying online; to fully self-host, migrate and retain the same original assets in persistent storage.
-- Existing CBSE links are imported as remote references. They will continue redirecting to the source domain unless an admin uploads replacement PDFs.
-- Uploads are published under `public/upload`. Never allow executable file types; the API accepts only images (JPEG, PNG, WebP, GIF) and PDFs with matching file signatures.
+- Existing CBSE source references remain unchanged in the seed data. Their same-domain legacy paths report the PDF as unavailable until an administrator uploads a local replacement; the app does not redirect to the source domain.
+- Image uploads are stored under `public/upload`; PDF uploads are stored under `public/cbse-information`. Never allow executable file types; the API accepts only images (JPEG, PNG, WebP, GIF) and PDFs with matching file signatures.
 - The content editor saves edits with optimistic revision checks to avoid overwriting a simultaneous change.

@@ -1,7 +1,92 @@
-'use client';
-import Link from 'next/link';
-import {usePathname} from 'next/navigation';
-import {useState} from 'react';
-import {Menu,X,Mail,Phone,MapPin,ArrowUpRight} from 'lucide-react';
-export default function Navbar({school,nav,logo}){const [open,setOpen]=useState(false);const path=usePathname().replace(/^\/admin\/preview(?=\/|$)/,'') || '/';const links=[...nav.links.slice(0,6),{href:'/circulars',label:'Circulars'},...nav.links.slice(6)];return <header className="sticky top-0 z-40"><div className="hidden bg-[#521c31] px-5 py-2 text-[11px] font-medium text-white/80 xl:block"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-5"><div className="flex items-center gap-6"><span className="flex items-center gap-2"><MapPin size={13}/>{school.address}</span><a className="flex items-center gap-2 hover:text-white" href={`tel:${school.phone}`}><Phone size={13}/>{school.phone}</a><a className="flex items-center gap-2 hover:text-white" href={`mailto:${school.email}`}><Mail size={13}/>{school.email}</a></div><span className="uppercase tracking-[.13em] text-[#e7c690]">Learning · Culture · Values</span></div></div><div className="border-b border-[#efe7db]/75 bg-white/95 shadow-sm backdrop-blur-2xl"><div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-5 py-3 xl:px-8"><Link href="/" className="flex min-w-0 items-center gap-3 xl:max-w-[390px]"><img src={logo} alt="Donyi Polo Vidya Niketan school logo" className="h-[56px] w-auto max-w-[80px] shrink-0 object-contain md:h-[70px] md:max-w-[94px] xl:h-[84px] xl:max-w-[108px]"/><span className="font-display text-base font-bold leading-tight text-[#5d2037] md:text-xl">{school.name}<small className="mt-1 block font-sans text-[10px] font-bold uppercase tracking-[.17em] text-[#9b7656]">Pasighat · Arunachal Pradesh</small></span></Link><button onClick={()=>setOpen(!open)} className="rounded-lg border p-2 xl:hidden" aria-label="Toggle navigation" aria-expanded={open} aria-controls="main-navigation">{open?<X/>:<Menu/>}</button><nav id="main-navigation" aria-label="Main navigation" className={`${open?'flex':'hidden'} absolute inset-x-0 top-full max-h-[75vh] flex-col gap-1 overflow-auto border-t bg-white p-5 shadow-xl xl:static xl:flex xl:max-h-none xl:flex-row xl:items-center xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none`}>{links.map((l)=><Link key={l.href} href={l.href} onClick={()=>setOpen(false)} className={`rounded-full px-2.5 py-2 text-[13px] whitespace-nowrap font-bold transition hover:bg-[#f8ebdd] ${path===l.href?'bg-[#74233e] text-white hover:bg-[#74233e]':'text-[#453c3b]'}`}>{l.label}</Link>)}</nav></div></div></header>}
-
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Menu, X, Mail, Phone, MapPin, ArrowUpRight } from "lucide-react";
+import SchoolLogo from "./SchoolLogo";
+export default function Navbar({ school, nav, logo }) {
+  const [open, setOpen] = useState(false);
+  const path = usePathname().replace(/^\/admin\/preview(?=\/|$)/, "") || "/";
+  const links = [
+    ...nav.links.slice(0, 6),
+    { href: "/circulars", label: "Circulars" },
+    ...nav.links.slice(6),
+  ];
+  return (
+    <header className="sticky top-0 z-40">
+      <div className="hidden bg-[#521c31] px-5 py-2 text-[11px] font-medium text-white/80 xl:block">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-5">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-2">
+              <MapPin size={13} />
+              {school.address}
+            </span>
+            <a
+              className="flex items-center gap-2 hover:text-white"
+              href={`tel:${school.phone}`}
+            >
+              <Phone size={13} />
+              {school.phone}
+            </a>
+            <a
+              className="flex items-center gap-2 hover:text-white"
+              href={`mailto:${school.email}`}
+            >
+              <Mail size={13} />
+              {school.email}
+            </a>
+          </div>
+          <span className="uppercase tracking-[.13em] text-[#e7c690]">
+            Learning · Culture · Values
+          </span>
+        </div>
+      </div>
+      <div className="border-b border-[#efe7db]/75 bg-white/95 shadow-sm backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-5 py-3 xl:px-8">
+          <Link
+            href="/"
+            className="flex min-w-0 items-center gap-3 xl:max-w-[390px]"
+          >
+            <SchoolLogo
+              src={logo}
+              alt="Donyi Polo Vidya Niketan school logo"
+              className="h-[56px] w-auto max-w-[80px] shrink-0 object-contain md:h-[70px] md:max-w-[94px] xl:h-[84px] xl:max-w-[108px]"
+              fallbackClassName="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full border border-[#d4bf9e] bg-[#fbf4e8] font-display text-xs font-bold text-[#74233e] md:h-[70px] md:w-[70px] xl:h-[84px] xl:w-[84px]"
+            />
+            <span className="font-display text-base font-bold leading-tight text-[#5d2037] md:text-xl">
+              {school.name}
+              <small className="mt-1 block font-sans text-[10px] font-bold uppercase tracking-[.17em] text-[#9b7656]">
+                Pasighat · Arunachal Pradesh
+              </small>
+            </span>
+          </Link>
+          <button
+            onClick={() => setOpen(!open)}
+            className="rounded-lg border p-2 xl:hidden"
+            aria-label="Toggle navigation"
+            aria-expanded={open}
+            aria-controls="main-navigation"
+          >
+            {open ? <X /> : <Menu />}
+          </button>
+          <nav
+            id="main-navigation"
+            aria-label="Main navigation"
+            className={`${open ? "flex" : "hidden"} absolute inset-x-0 top-full max-h-[75vh] flex-col gap-1 overflow-auto border-t bg-white p-5 shadow-xl xl:static xl:flex xl:max-h-none xl:flex-row xl:items-center xl:border-0 xl:bg-transparent xl:p-0 xl:shadow-none`}
+          >
+            {links.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={() => setOpen(false)}
+                className={`rounded-full px-2.5 py-2 text-[13px] whitespace-nowrap font-bold transition hover:bg-[#f8ebdd] ${path === l.href ? "bg-[#74233e] text-white hover:bg-[#74233e]" : "text-[#453c3b]"}`}
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+}

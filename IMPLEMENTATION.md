@@ -28,9 +28,9 @@ Indexes:
 - `{ isPublished: 1, publishedAt: -1, seedOrder: 1, _id: -1 }` for public filtering and stable ordering.
 - Unique sparse `seedKey` for imported records.
 
-Migration reuses the existing `SeedState` collection. Original source entries and distinct legacy MongoDB achievers are inserted without overwriting existing achievements. Deterministic IDs, unique seed keys, insert-only updates and per-entry completion markers make retries/concurrent requests safe and prevent intentional deletions from being undone. The shared migration timestamp denotes import/publication time, not a historical achievement date. Original ordering is retained through `seedOrder`.
+Migration reuses the existing `SeedState` collection. Public reads do not seed or write content collections. The separately reviewable `scripts/migrate-managed-content.mjs` defaults to a read-only preview and requires `--apply` plus the exact connected database name before making changes. It adds missing original source entries and tags distinct legacy Our Pride documents without overwriting their content. Deterministic IDs, unique seed keys, insert-only updates and per-entry completion markers make retries/concurrent requests safe and prevent intentional deletions from being undone. The shared migration timestamp denotes import/publication time, not a historical achievement date. Original ordering is retained through `seedOrder`.
 
-The configured school database was seeded and checked: exactly three achievements, with these original values:
+An isolated disposable database was seeded and checked: exactly three achievement fixtures, with these original values:
 
 | Name | Achievement | Title |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ The configured school database was seeded and checked: exactly three achievement
 | `/api/our-pride/:id` | PUT / DELETE, authenticated update/delete; `removeImage=true` removes only the photo |
 | `/api/media/our-pride/:id?v=...` | GET current photo; hidden entry photos require an admin session |
 
-Writes verify same origin and an active database-backed admin session/role. The existing database throttle collection enforces 60 Our Pride changes per admin per 15-minute window. Text/year/publication fields are validated server-side. Multipart bodies are bounded while streaming; file size, MIME and byte signatures must match. Upload filenames are generated under the existing `public/upload` storage directory. Replacement/deletion cleans up old files after database success. Optimistic concurrency prevents simultaneous saves of a loaded record from silently overwriting one another. Infrastructure errors are not returned to clients.
+Writes verify same origin and an active database-backed admin session/role. The existing database throttle collection enforces 60 Our Pride changes per admin per 15-minute window. Text/year/publication fields are validated server-side. Multipart bodies are bounded while streaming; file size, MIME and byte signatures must match. Generated image files are stored under `public/upload`; PDFs are stored under `public/cbse-information`, with legacy files in `public/upload` still served during transition. Replacement/deletion cleans up old files after database success. Optimistic concurrency prevents simultaneous saves of a loaded record from silently overwriting one another. Infrastructure errors are not returned to clients.
 
 Photo delivery uses a media route because production Next.js does not discover newly created public files reliably after startup. Versioned photo URLs also invalidate the image-optimizer URL when a photo is replaced. Public cards use lazy Next Image optimization with responsive sizes; admin previews use the original image.
 
@@ -65,36 +65,32 @@ Mongoose deprecated `new: true` options were replaced with `returnDocument: 'aft
 | Admin UI | `src/components/admin/Dashboard.jsx`, `PrideManager.jsx` |
 | API | `src/app/api/our-pride/route.js`, `src/app/api/our-pride/[id]/route.js`, `src/app/api/media/our-pride/[id]/route.js` |
 | Model/data/validation/auth | `src/lib/models.js`, `pride-model.mjs`, `pride-core.mjs`, `pride.js`, `pride-write.js`, `db.js`, `upload.js`, `src/app/api/auth/login/route.js` |
-| Seed and checks | `scripts/seed.mjs`, `scripts/test-pride-integration.mjs`, `scripts/test-pride-browser.mjs`, `tests/pride.test.mjs`, `tests/upload.test.mjs` |
+| Explicit, idempotent data migration | `scripts/migrate-managed-content.mjs`, `src/lib/dynamic-content-seed.mjs`, `src/lib/content.js`, `src/lib/db.js` |
+| Seed and checks | `scripts/test-pride-integration.mjs`, `scripts/test-pride-browser.mjs`, `tests/pride.test.mjs`, `tests/upload.test.mjs` |
 | Configuration/docs | `package.json`, `.env.example`, `README.md`, `IMPLEMENTATION.md` |
 
 ## Actual verification
 
-- `npm run seed`: passed against the configured MongoDB; existing administrator/password and school content retained.
-- `npm run verify`: passed; all original JSON content fields remain identical.
-- `npm test`: 17 passed, 0 failed.
-- `npm run build`: passed with Next.js 15.5.26.
-- `npm run test:browser`: 22 integration/browser check groups passed using the production build and a unique disposable database. Test records never enter the school database. Test server/browser are stopped and temporary database/uploads removed afterward.
-- Actual API checks cover repeated/concurrent seeding, original names/ranks/titles, missing photos, real login, role/session/origin enforcement, field validation, MIME/signature/size rejection, hidden records, photo upload/replacement/removal for an original student, immediate image serving and optimization, hidden-photo access, create/edit/delete, publish/hide transitions, preserved publication order on edits, search, latest-three order, pagination with 13 published test records, invalid pages, empty states, rate-limit expiry, deletion without resurrection, login throttling, existing school pages, gallery/circulars and CBSE endpoints.
-- Headless Microsoft Edge verified the logo loaded, its 84/70/56px sizes and `contain` behavior, no header overlap/page overflow at 1440/1280/1024/768/390/320px, mobile menu behavior, original placeholder cards, authenticated admin editing/live preview and mobile admin layout, with no JavaScript runtime exceptions.
-- Application logs contained no deprecated Mongoose return-option warnings.
+- `npm run verify`: passed; original `data/seed-content.json` and `data/site.json` fields remain unchanged.
+- `npm test`: 34 passed, 0 failed.
+- `npm run build`: passed with Next.js 15.5.29 using isolated `NEXT_DIST_DIR=.next-production-check`. Next.js warns that the parent and app folders both contain lockfiles and infers the workspace root.
+- `npm run test:integration`: 33 checks passed against a uniquely named disposable MongoDB database and temporary upload root. This includes read-only public GETs, migration preview, exact-target confirmation, idempotent migration, authentication, and media CRUD.
+- `npm run test:browser`: 52 checks passed against that disposable database, including logo publish/discard, CBSE upload, gallery editing/lightbox, Our Pride editing, login/logout, and responsive checks.
+- Headless Edge checked page width/branding/navigation at 1440, 1280, 1024, 768, 390, 375 and 320px; the admin mobile layout and editor were also checked at mobile widths. No horizontal overflow or runtime exceptions were reported.
+- `git diff --check` passed. Source changes were formatted with Prettier.
+- A scoped source security review found no substantiated route/helper vulnerabilities. It is not a full independent assessment. `npm audit --omit=dev` still reports one high and one moderate PostCSS advisory nested under Next.js 15.5.29; the compatible override did not reify, and the proposed automatic fix would upgrade to Next.js 16, so that breaking change was not applied.
 
-The sandbox initially blocked worker spawning (`EPERM`); build/tests succeeded when run with the required execution permission. Node's standalone upload test emits an existing module-type detection warning for the project's JavaScript module convention; this is separate from Mongoose and does not fail tests.
+The browser tests write temporary screenshots under `artifacts/`; those files were removed after verification. Standalone Node test/migration processes emit existing module-type detection warnings because the project uses ESM syntax in `.js` files without `"type": "module"`; the warnings do not fail tests.
 
 ## Screenshots
 
-- [Homepage, desktop](artifacts/our-pride-home-1440.png)
-- [Homepage, tablet](artifacts/our-pride-home-768.png)
-- [Homepage, mobile](artifacts/our-pride-home-390.png)
-- [Our Pride listing](artifacts/our-pride-listing-desktop.png)
-- [Admin manager, desktop](artifacts/our-pride-admin-desktop.png)
-- [Admin manager, mobile](artifacts/our-pride-admin-mobile.png)
+Screenshots are not retained; the browser suite regenerates them under `artifacts/`.
 
 ## Remaining details and limits
 
 The earlier footer prompt and exact developer identity/link were not included in the attachment. Attribution support is implemented through optional `DEVELOPER_CREDIT_NAME` / `DEVELOPER_CREDIT_URL` server environment values; the credit appears when an actual developer name is supplied. No developer identity was invented. Admin Login and footer layout/link improvements are implemented.
 
-Tests ran locally, including MongoDB and Edge. No production deployment, production HTTPS/proxy verification, backup restoration or independent security audit was performed. Original remote CBSE files remain external references; their local redirect endpoint was checked, but every external PDF target was not downloaded/validated. Existing uploads still require persistent storage as documented in README. No production-readiness claim is made.
+The integration script uses a unique disposable MongoDB database and isolated temporary file storage. No production deployment, production HTTPS/proxy verification, backup restoration, or independent security assessment was performed. Original CBSE source references remain in the seed data; missing local PDFs are unavailable rather than redirected. Existing uploads still require persistent storage as documented in README. No production-readiness claim is made.
 
 ## Follow-up: admin dashboard login
 
